@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -31,7 +32,7 @@ def test_ask_command_uses_mocked_agent(monkeypatch, tmp_path: Path) -> None:
 
         return FakeAgent()
 
-    monkeypatch.setattr(cli, "build_agent", fake_build_agent)
+    monkeypatch.setattr("repoinsight.agent.builder.build_agent", fake_build_agent)
 
     result = runner.invoke(cli.app, ["ask", "Analyze architecture", "--path", str(project)])
 
@@ -41,3 +42,36 @@ def test_ask_command_uses_mocked_agent(monkeypatch, tmp_path: Path) -> None:
     assert "Report directory:" in result.output
     assert "mock_report.md" in result.output
     assert "Mock summary" in result.output
+
+
+def test_profile_command_outputs_project_profile_without_api_key(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "pyproject.toml").write_text("[project]\nname = 'demo'\n", encoding="utf-8")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    result = runner.invoke(cli.app, ["profile", "--path", str(project)])
+
+    assert result.exit_code == 0
+    assert "Project Profile" in result.output
+    assert "Python" in result.output
+
+
+def test_profile_command_outputs_json_without_api_key(monkeypatch, tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "package.json").write_text(
+        '{"dependencies": {"react": "^19.0.0"}}',
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    result = runner.invoke(cli.app, ["profile", "--path", str(project), "--json"])
+
+    assert result.exit_code == 0
+    parsed = json.loads(result.output)
+    assert "React" in parsed["frameworks"]
+    assert parsed["root"] == project.name

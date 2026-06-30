@@ -20,6 +20,17 @@ Directory listing and search ignore sensitive or noisy folders such as `.git`,
 `node_modules`, `.venv`, `venv`, `__pycache__`, `dist`, `build`, `.next`,
 `.idea`, and `.vscode`.
 
+## Project Profile Safety
+
+The `profile` CLI command and `detect_project_profile` Agent tool are
+deterministic analyzers. They do not execute shell commands, do not call an LLM,
+do not write reports, and do not modify source files.
+
+The detector reads only limited-size configuration files such as `package.json`,
+`pyproject.toml`, and `requirements.txt`. It checks common entry point paths by
+existence and uses bounded-depth scanning for filenames such as `cli.py` and
+`main.py`. It skips dependency, cache, build, and VCS directories.
+
 ## Why Arbitrary Shell Commands Are Not Allowed
 
 Arbitrary shell access can delete files, move source code, leak local data,

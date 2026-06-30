@@ -14,7 +14,7 @@ Safe command execution and Git analysis tools.
 
 ## v0.4
 
-Add project type detection for common stacks and frameworks.
+Project Detector and repository profile.
 
 ## v0.5
 

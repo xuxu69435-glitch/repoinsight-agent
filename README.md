@@ -5,14 +5,18 @@ provide a local project path and an analysis goal. The Agent can inspect the
 directory tree, search code, read key text files, and generate a Markdown report
 under `project_root/reports`.
 
-Current status: v0.3 LangChain Agent runtime with safe command execution and
-Git analysis tools. LangGraph is not implemented yet.
+Current status: v0.4 LangChain Agent runtime with Project Detector, safe command
+execution, and Git analysis tools. LangGraph is not implemented yet.
 
 ## Current Features
 
 - Typer CLI with Rich output.
 - LangChain Agent runtime through `langchain.agents.create_agent`.
 - OpenAI or OpenAI-compatible chat model configuration.
+- Deterministic project profile detection without an API key.
+- Python, Node.js, React, Vue, Vite, Next.js, TypeScript, and JavaScript hints.
+- Parsing for `package.json`, `pyproject.toml`, and `requirements.txt`.
+- Entry point, package manager, script, dependency, and config file detection.
 - Safe project path validation.
 - Directory scanning with ignored dependency and build folders.
 - UTF-8 text file reading with path containment checks.
@@ -60,6 +64,8 @@ or another compatible service. Do not commit real API keys.
 ```bash
 repoinsight version
 repoinsight scan --path ./some-project
+repoinsight profile --path ./some-project
+repoinsight profile --path ./some-project --json
 repoinsight ask "Analyze this project architecture" --path ./some-project
 repoinsight ask "Run pytest and analyze failures" --path ./some-project
 repoinsight ask "Analyze current git diff and write a code review report" --path ./some-project
@@ -71,6 +77,8 @@ You can also run the module directly:
 ```bash
 python -m repoinsight.cli version
 python -m repoinsight.cli scan --path .
+python -m repoinsight.cli profile --path .
+python -m repoinsight.cli profile --path . --json
 python -m repoinsight.cli ask "Analyze this project architecture" --path .
 python -m repoinsight.cli ask "Run pytest and analyze failures" --path .
 python -m repoinsight.cli ask "Analyze current git diff and write a code review report" --path .
@@ -81,6 +89,9 @@ The `ask` command validates the project path, creates the LangChain Agent,
 allows it to call repository tools, and prints the report directory, report path
 when found, and a short answer preview.
 
+The `profile` command does not require `OPENAI_API_KEY`. It does not call an LLM,
+run commands, or write reports.
+
 ## Current Capabilities
 
 - Can read the project directory structure.
@@ -89,6 +100,9 @@ when found, and a short answer preview.
 - Can inspect Git status, diff, diff statistics, and oneline history.
 - Can run selected safe test and build commands.
 - Can analyze test, build, and Git output in Markdown reports.
+- Can detect project profile without an API key.
+- Can identify likely entry points, scripts, package managers, dependencies, and
+  key config files.
 - Can generate Markdown reports under `reports/*.md`.
 - Does not run arbitrary shell commands.
 - Does not install dependencies.
@@ -132,12 +146,16 @@ File listing and search ignore common dependency, cache, build, and IDE folders
 such as `.git`, `node_modules`, `.venv`, `__pycache__`, `dist`, `build`,
 `.next`, `.idea`, and `.vscode`.
 
+Project profile detection reads only limited-size configuration files and checks
+entry point existence with bounded depth. It does not execute commands, call an
+LLM, or modify files.
+
 ## Roadmap
 
 - v0.1: project skeleton, CLI, file tools, search tools, report tools.
 - v0.2: LangChain Agent integration.
 - v0.3: safe command execution and Git analysis tools.
-- v0.4: project type detection.
+- v0.4: Project Detector and repository profile.
 - v0.5: structured output reports.
 - v0.6: LangGraph workflow.
 - v1.0: stable open-source release.

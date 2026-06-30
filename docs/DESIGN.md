@@ -28,13 +28,26 @@ The tools live in `repoinsight/tools`.
 These functions are plain Python functions so they can be tested directly and
 then wrapped as LangChain tools.
 
+## Analyzers Layer
+
+The analyzers live in `repoinsight/analyzers`.
+
+- `project_detector.py`: builds a deterministic repository profile before Agent
+  reasoning. It parses limited-size manifest files such as `package.json`,
+  `pyproject.toml`, and `requirements.txt`, checks bounded-depth entry point
+  existence, and returns project types, languages, frameworks, scripts,
+  dependencies, package managers, entry points, config files, evidence files,
+  confidence, and notes.
+
+The Project Detector does not call an LLM, execute commands, or modify files.
+
 ## Agent Layer
 
 The Agent layer lives in `repoinsight/agent`.
 
 `build_agent()` creates a LangChain Agent with `langchain.agents.create_agent`,
-`ChatOpenAI`, the file/search/report/command/Git tools, and the system prompt
-from `prompts.py`.
+`ChatOpenAI`, the analyzer/file/search/report/command/Git tools, and the system
+prompt from `prompts.py`.
 
 `agent/tools.py` wraps the plain Python tools as LangChain tools. The selected
 project root is bound in Python closures, so the Agent cannot supply or alter
@@ -55,9 +68,10 @@ The utilities live in `repoinsight/utils`.
 The LangChain Agent:
 
 1. Validate the project path through `resolve_project_path`.
-2. Call `list_files` to inspect repository structure.
-3. Call `search_code` and `read_file` to gather evidence.
-4. Optionally call Git inspection or whitelist command tools when the task needs
+2. Call `detect_project_profile` to get a deterministic repository profile.
+3. Call `list_files` when it needs more detailed repository structure.
+4. Call `search_code` and `read_file` to gather evidence.
+5. Optionally call Git inspection or whitelist command tools when the task needs
    test, build, or Git evidence.
-5. Produce an `AnalysisReport` model.
-6. Write the final Markdown report with `write_report`.
+6. Produce an `AnalysisReport` model.
+7. Write the final Markdown report with `write_report`.

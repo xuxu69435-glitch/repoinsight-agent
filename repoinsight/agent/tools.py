@@ -7,6 +7,7 @@ from typing import Any
 
 from langchain_core.tools import BaseTool, StructuredTool
 
+from repoinsight.analyzers.project_detector import detect_project
 from repoinsight.config import (
     DEFAULT_MAX_DEPTH,
     DEFAULT_MAX_FILE_CHARS,
@@ -70,7 +71,20 @@ def create_repo_tools(project_root: Path) -> list[BaseTool]:
         """Return recent git log --oneline entries, limited to 1-50 lines."""
         return git_log_oneline(str(root), max_count=max_count)
 
+    def detect_project_profile() -> dict[str, Any]:
+        """Detect project type, stack, entry points, scripts, and config files."""
+        return detect_project(str(root))
+
     return [
+        StructuredTool.from_function(
+            func=detect_project_profile,
+            name="detect_project_profile",
+            description=(
+                "Detect the project profile without calling an LLM or running commands. "
+                "Returns project types, languages, frameworks, dependencies, scripts, "
+                "entry points, config files, evidence files, confidence, and notes."
+            ),
+        ),
         StructuredTool.from_function(
             func=list_project_files,
             name="list_project_files",

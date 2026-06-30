@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path, PurePosixPath
 from typing import Any
 
 import typer
 from rich.console import Console
 from rich.panel import Panel
+from rich.table import Table
 from rich.tree import Tree
 
 from repoinsight import __version__
-from repoinsight.agent.builder import build_agent
+from repoinsight.analyzers.project_detector import detect_project
 from repoinsight.config import DEFAULT_MAX_DEPTH, load_config
 from repoinsight.tools.file_tools import list_files
 from repoinsight.utils.path_guard import resolve_project_path
@@ -51,6 +53,26 @@ def scan(
 
 
 @app.command()
+def profile(
+    path: str = typer.Option(..., "--path", "-p", help="Local project path to profile."),
+    json_output: bool = typer.Option(
+        False,
+        "--json",
+        help="Output the project profile as JSON.",
+    ),
+) -> None:
+    """Detect project type, stack, entry points, and config files without an LLM."""
+    root = resolve_project_path(path)
+    detected = detect_project(str(root))
+    if json_output:
+        console.print(json.dumps(detected, ensure_ascii=False, indent=2))
+        return
+
+    console.print(Panel.fit(f"Project: {root}", title="RepoInsight Profile"))
+    console.print(_build_profile_table(detected))
+
+
+@app.command()
 def ask(
     question: str = typer.Argument(..., help="Analysis question for the Agent."),
     path: str = typer.Option(..., "--path", "-p", help="Local project path to analyze."),
@@ -74,6 +96,8 @@ def ask(
         raise typer.Exit(code=1)
 
     try:
+        from repoinsight.agent.builder import build_agent
+
         agent = build_agent(root, config)
         result = agent.invoke({"messages": [{"role": "user", "content": question}]})
     except Exception as exc:
@@ -117,6 +141,40 @@ def _build_tree(structure: dict[str, Any]) -> Tree:
         parent.add(path.name)
 
     return tree
+
+
+def _build_profile_table(profile_data: dict[str, Any]) -> Table:
+    table = Table(title="Project Profile", show_header=True, header_style="bold")
+    table.add_column("Field", style="cyan", no_wrap=True)
+    table.add_column("Value")
+
+    table.add_row("Project Types", _join_values(profile_data.get("project_types", [])))
+    table.add_row("Languages", _join_values(profile_data.get("languages", [])))
+    table.add_row("Frameworks", _join_values(profile_data.get("frameworks", [])))
+    table.add_row("Package Managers", _join_values(profile_data.get("package_managers", [])))
+    table.add_row("Entry Points", _format_path_items(profile_data.get("entry_points", [])))
+    table.add_row("Key Config Files", _format_path_items(profile_data.get("config_files", [])))
+    table.add_row("Scripts", _format_scripts(profile_data.get("scripts", [])))
+    table.add_row("Confidence", str(profile_data.get("confidence", 0)))
+    return table
+
+
+def _join_values(values: list[Any]) -> str:
+    if not values:
+        return "-"
+    return ", ".join(str(value) for value in values)
+
+
+def _format_path_items(items: list[dict[str, Any]]) -> str:
+    if not items:
+        return "-"
+    return "\n".join(str(item.get("path", "-")) for item in items)
+
+
+def _format_scripts(items: list[dict[str, Any]]) -> str:
+    if not items:
+        return "-"
+    return "\n".join(f"{item.get('name', '-')}: {item.get('command', '-')}" for item in items)
 
 
 def _find_latest_report(reports_dir: Path) -> Path | None:

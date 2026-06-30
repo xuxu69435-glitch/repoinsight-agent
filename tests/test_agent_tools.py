@@ -5,13 +5,14 @@ from pathlib import Path
 from repoinsight.agent.tools import create_repo_tools
 
 
-def test_create_repo_tools_exposes_eight_bound_tools(tmp_path: Path) -> None:
+def test_create_repo_tools_exposes_nine_bound_tools(tmp_path: Path) -> None:
     project = tmp_path / "project"
     project.mkdir()
 
     tools = create_repo_tools(project)
 
     assert sorted(tool.name for tool in tools) == [
+        "detect_project_profile",
         "get_git_diff",
         "get_git_log",
         "get_git_status",
@@ -59,3 +60,16 @@ def test_new_agent_tools_are_available_by_name(tmp_path: Path) -> None:
     assert "get_git_status" in tools
     assert "get_git_diff" in tools
     assert "get_git_log" in tools
+    assert "detect_project_profile" in tools
+
+
+def test_detect_project_profile_tool_is_bound_to_project_root(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "pyproject.toml").write_text("[project]\nname = 'demo'\n", encoding="utf-8")
+
+    tools = {tool.name: tool for tool in create_repo_tools(project)}
+    result = tools["detect_project_profile"].invoke({})
+
+    assert "Python" in result["project_types"]
+    assert any(item["path"] == "pyproject.toml" for item in result["config_files"])
