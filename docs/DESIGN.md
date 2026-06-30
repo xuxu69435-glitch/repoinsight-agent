@@ -24,6 +24,8 @@ The tools live in `repoinsight/tools`.
 - `report_tools.py`: writes Markdown reports under `project_root/reports`.
 - `command_tools.py`: runs whitelist commands with `shell=False`.
 - `git_tools.py`: wraps Git status, diff, and oneline log inspection.
+- `report_tools.py`: also exposes structured report writing that creates paired
+  Markdown and JSON reports from one schema.
 
 These functions are plain Python functions so they can be tested directly and
 then wrapped as LangChain tools.
@@ -40,6 +42,23 @@ The analyzers live in `repoinsight/analyzers`.
   confidence, and notes.
 
 The Project Detector does not call an LLM, execute commands, or modify files.
+
+## Reporting Layer
+
+The reporting layer lives in `repoinsight/reporting`.
+
+- `repoinsight/agent/schemas.py`: defines the Pydantic `AnalysisReport` schema,
+  including project summary, findings, recommendations, evidence, limitations,
+  and next steps.
+- `markdown_renderer.py`: renders an `AnalysisReport` as readable Markdown.
+- `json_writer.py`: writes an `AnalysisReport` as UTF-8 JSON under
+  `project_root/reports`.
+- `write_structured_report`: tool helper that writes both
+  `reports/<base>.md` and `reports/<base>.json` from one validated report.
+
+Structured JSON reports are intended for later Web UI integration, regression
+testing, and Agent evaluation. Markdown reports remain the human-readable
+output.
 
 ## Agent Layer
 
@@ -74,4 +93,5 @@ The LangChain Agent:
 5. Optionally call Git inspection or whitelist command tools when the task needs
    test, build, or Git evidence.
 6. Produce an `AnalysisReport` model.
-7. Write the final Markdown report with `write_report`.
+7. Prefer `write_structured_analysis_report` to write both Markdown and JSON.
+8. Fall back to `write_report` only when structured report writing fails.

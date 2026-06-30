@@ -105,13 +105,19 @@ def ask(
         raise typer.Exit(code=1) from exc
 
     reports_dir = root / "reports"
-    report_path = _find_latest_report(reports_dir)
+    report_paths = _extract_report_paths(result)
     console.print("[green]Agent finished.[/green]")
     console.print(f"Report directory: {reports_dir}")
-    if report_path is not None:
-        console.print(f"Report path: {report_path}")
+    if report_paths:
+        markdown_path = report_paths.get("markdown_report_path")
+        json_path = report_paths.get("json_report_path")
+        if markdown_path:
+            console.print(f"Markdown report path: {markdown_path}")
+        if json_path:
+            console.print(f"JSON report path: {json_path}")
     else:
-        console.print("[yellow]Report path: no Markdown report was found.[/yellow]")
+        console.print("[yellow]Report path: no explicit report path was returned.[/yellow]")
+        console.print("Check the reports directory for generated files.")
     console.print(f"Answer preview: {_extract_answer_preview(result)}")
 
 
@@ -177,15 +183,6 @@ def _format_scripts(items: list[dict[str, Any]]) -> str:
     return "\n".join(f"{item.get('name', '-')}: {item.get('command', '-')}" for item in items)
 
 
-def _find_latest_report(reports_dir: Path) -> Path | None:
-    if not reports_dir.exists():
-        return None
-    reports = [path for path in reports_dir.glob("*.md") if path.is_file()]
-    if not reports:
-        return None
-    return max(reports, key=lambda path: path.stat().st_mtime)
-
-
 def _extract_answer_preview(result: Any, max_chars: int = 500) -> str:
     text = _extract_answer_text(result).strip()
     if not text:
@@ -224,6 +221,25 @@ def _content_to_text(content: Any) -> str:
                     parts.append(str(value))
         return "\n".join(parts)
     return str(content)
+
+
+def _extract_report_paths(result: Any) -> dict[str, str]:
+    found: dict[str, str] = {}
+
+    def visit(value: Any) -> None:
+        if isinstance(value, dict):
+            for key in ("markdown_report_path", "json_report_path"):
+                item = value.get(key)
+                if isinstance(item, str) and item:
+                    found[key] = item
+            for item in value.values():
+                visit(item)
+        elif isinstance(value, list):
+            for item in value:
+                visit(item)
+
+    visit(result)
+    return found
 
 
 if __name__ == "__main__":

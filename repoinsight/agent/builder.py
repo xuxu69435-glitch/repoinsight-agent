@@ -6,9 +6,11 @@ from pathlib import Path
 from typing import Any
 
 from langchain.agents import create_agent
+from langchain.agents.structured_output import ToolStrategy
 from langchain_openai import ChatOpenAI
 
 from repoinsight.agent.prompts import SYSTEM_PROMPT
+from repoinsight.agent.schemas import AnalysisReport
 from repoinsight.agent.tools import create_repo_tools
 from repoinsight.config import AppConfig
 
@@ -24,8 +26,21 @@ def build_agent(project_root: Path, config: AppConfig) -> Any:
         model_kwargs["base_url"] = config.openai_base_url
 
     model = ChatOpenAI(**model_kwargs)
-    return create_agent(
-        model=model,
-        tools=create_repo_tools(project_root),
-        system_prompt=SYSTEM_PROMPT,
-    )
+    tools = create_repo_tools(project_root)
+
+    # LangChain structured output support depends on the installed version and
+    # model/provider capabilities. RepoInsight still exposes
+    # write_structured_analysis_report as the stable report persistence path.
+    try:
+        return create_agent(
+            model=model,
+            tools=tools,
+            system_prompt=SYSTEM_PROMPT,
+            response_format=ToolStrategy(AnalysisReport),
+        )
+    except TypeError:
+        return create_agent(
+            model=model,
+            tools=tools,
+            system_prompt=SYSTEM_PROMPT,
+        )

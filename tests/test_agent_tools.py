@@ -5,7 +5,7 @@ from pathlib import Path
 from repoinsight.agent.tools import create_repo_tools
 
 
-def test_create_repo_tools_exposes_nine_bound_tools(tmp_path: Path) -> None:
+def test_create_repo_tools_exposes_ten_bound_tools(tmp_path: Path) -> None:
     project = tmp_path / "project"
     project.mkdir()
 
@@ -21,6 +21,7 @@ def test_create_repo_tools_exposes_nine_bound_tools(tmp_path: Path) -> None:
         "run_project_command",
         "search_project_code",
         "write_markdown_report",
+        "write_structured_analysis_report",
     ]
 
 
@@ -61,6 +62,7 @@ def test_new_agent_tools_are_available_by_name(tmp_path: Path) -> None:
     assert "get_git_diff" in tools
     assert "get_git_log" in tools
     assert "detect_project_profile" in tools
+    assert "write_structured_analysis_report" in tools
 
 
 def test_detect_project_profile_tool_is_bound_to_project_root(tmp_path: Path) -> None:
@@ -73,3 +75,24 @@ def test_detect_project_profile_tool_is_bound_to_project_root(tmp_path: Path) ->
 
     assert "Python" in result["project_types"]
     assert any(item["path"] == "pyproject.toml" for item in result["config_files"])
+
+
+def test_write_structured_analysis_report_tool_writes_md_and_json(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    tools = {tool.name: tool for tool in create_repo_tools(project)}
+
+    result = tools["write_structured_analysis_report"].invoke(
+        {
+            "filename": "analysis_report.json",
+            "report": {
+                "title": "Agent Report",
+                "task": "Analyze",
+                "project_summary": {"project_types": ["Python"]},
+                "executive_summary": "Summary",
+            },
+        }
+    )
+
+    assert Path(result["markdown_report_path"]).is_file()
+    assert Path(result["json_report_path"]).is_file()

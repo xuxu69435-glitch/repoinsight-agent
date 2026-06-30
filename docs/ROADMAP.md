@@ -18,7 +18,7 @@ Project Detector and repository profile.
 
 ## v0.5
 
-Add structured output reports backed by Pydantic schemas.
+Structured Markdown + JSON reports.
 
 ## v0.6
 

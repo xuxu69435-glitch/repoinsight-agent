@@ -16,7 +16,7 @@ from repoinsight.config import (
 from repoinsight.tools.command_tools import run_safe_command
 from repoinsight.tools.file_tools import list_files, read_file
 from repoinsight.tools.git_tools import git_diff, git_log_oneline, git_status
-from repoinsight.tools.report_tools import write_report
+from repoinsight.tools.report_tools import write_report, write_structured_report
 from repoinsight.tools.search_tools import search_code
 
 
@@ -45,6 +45,18 @@ def create_repo_tools(project_root: Path) -> list[BaseTool]:
     def write_markdown_report(filename: str, content: str) -> dict[str, Any]:
         """Write a Markdown report into the project's reports directory."""
         return write_report(str(root), filename=filename, content=content)
+
+    def write_structured_analysis_report(
+        filename: str,
+        report: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Write the final structured report as both Markdown and JSON.
+
+        The report must match the AnalysisReport schema. The tool writes
+        reports/<base>.md and reports/<base>.json and is the preferred final
+        report tool for RepoInsight Agent.
+        """
+        return write_structured_report(str(root), filename=filename, report=report)
 
     def run_project_command(
         command: str,
@@ -109,6 +121,14 @@ def create_repo_tools(project_root: Path) -> list[BaseTool]:
             func=write_markdown_report,
             name="write_markdown_report",
             description="Write the final Markdown report as project_root/reports/<filename>.",
+        ),
+        StructuredTool.from_function(
+            func=write_structured_analysis_report,
+            name="write_structured_analysis_report",
+            description=(
+                "Preferred final report tool. Write an AnalysisReport schema dict as both "
+                "Markdown and JSON under project_root/reports using the same base filename."
+            ),
         ),
         StructuredTool.from_function(
             func=run_project_command,

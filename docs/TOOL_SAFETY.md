@@ -31,6 +31,17 @@ The detector reads only limited-size configuration files such as `package.json`,
 existence and uses bounded-depth scanning for filenames such as `cli.py` and
 `main.py`. It skips dependency, cache, build, and VCS directories.
 
+## Structured Report Safety
+
+Structured reports are the only new write path in v0.5. They can only write
+paired Markdown and JSON files under `project_root/reports`. The JSON report is
+validated against the Pydantic `AnalysisReport` schema before it is written.
+
+Report filenames are restricted to simple `.md` or `.json` names with English
+letters, digits, underscores, and hyphens. Path traversal such as
+`../report.json` is rejected. Structured report writing does not modify source
+files.
+
 ## Why Arbitrary Shell Commands Are Not Allowed
 
 Arbitrary shell access can delete files, move source code, leak local data,
@@ -104,9 +115,10 @@ in stderr.
 
 ## Current Limitations
 
-v0.3 does not modify source files. The Agent can use safe local file, search,
-report, Git inspection, and whitelist command primitives. Its only write-capable
-tool creates Markdown reports under `project_root/reports`.
+v0.5 does not modify source files. The Agent can use safe local file, search,
+report, Git inspection, project profile, structured report, and whitelist
+command primitives. Its only write-capable tools create reports under
+`project_root/reports`.
 
 Before pushing to GitHub, make sure `.env`, local reports, caches, virtual
 environments, and generated indexes are not tracked.

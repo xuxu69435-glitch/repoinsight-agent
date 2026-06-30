@@ -27,8 +27,15 @@ def test_ask_command_uses_mocked_agent(monkeypatch, tmp_path: Path) -> None:
                 invoked["payload"] = payload
                 reports_dir = project_root / "reports"
                 reports_dir.mkdir(exist_ok=True)
-                (reports_dir / "mock_report.md").write_text("# Mock Report\n", encoding="utf-8")
-                return {"messages": [{"content": "Mock summary"}]}
+                markdown_path = reports_dir / "mock_report.md"
+                json_path = reports_dir / "mock_report.json"
+                markdown_path.write_text("# Mock Report\n", encoding="utf-8")
+                json_path.write_text("{}", encoding="utf-8")
+                return {
+                    "messages": [{"content": "Mock summary"}],
+                    "markdown_report_path": str(markdown_path),
+                    "json_report_path": str(json_path),
+                }
 
         return FakeAgent()
 
@@ -40,7 +47,10 @@ def test_ask_command_uses_mocked_agent(monkeypatch, tmp_path: Path) -> None:
     assert invoked["payload"]["messages"][0]["content"] == "Analyze architecture"
     assert "Agent finished." in result.output
     assert "Report directory:" in result.output
+    assert "Markdown report path:" in result.output
+    assert "JSON report path:" in result.output
     assert "mock_report.md" in result.output
+    assert "mock_report.json" in result.output
     assert "Mock summary" in result.output
 
 
