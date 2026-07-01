@@ -5,14 +5,16 @@ provide a local project path and an analysis goal. The Agent can inspect the
 directory tree, search code, read key text files, and generate Markdown and JSON
 reports under `project_root/reports`.
 
-Current status: v0.5 LangChain Agent runtime with structured reports, Project
-Detector, safe command execution, and Git analysis tools. LangGraph is not
-implemented yet.
+Current status: v0.6 with LangGraph workflow mode, structured reports, Project
+Detector, safe command execution, and Git analysis tools. The existing
+LangChain Agent `ask` mode remains available.
 
 ## Current Features
 
 - Typer CLI with Rich output.
 - LangChain Agent runtime through `langchain.agents.create_agent`.
+- LangGraph workflow mode for deterministic repository analysis.
+- No-LLM workflow path that does not require an API key.
 - OpenAI or OpenAI-compatible chat model configuration.
 - Deterministic project profile detection without an API key.
 - Python, Node.js, React, Vue, Vite, Next.js, TypeScript, and JavaScript hints.
@@ -68,6 +70,7 @@ repoinsight version
 repoinsight scan --path ./some-project
 repoinsight profile --path ./some-project
 repoinsight profile --path ./some-project --json
+repoinsight workflow "Analyze this project for open-source readiness" --path ./some-project --no-llm
 repoinsight ask "Analyze this project architecture" --path ./some-project
 repoinsight ask "Analyze this project and generate a structured report" --path ./some-project
 repoinsight ask "Run pytest and analyze failures" --path ./some-project
@@ -82,6 +85,7 @@ python -m repoinsight.cli version
 python -m repoinsight.cli scan --path .
 python -m repoinsight.cli profile --path .
 python -m repoinsight.cli profile --path . --json
+python -m repoinsight.cli workflow "Analyze this project for open-source readiness" --path . --no-llm
 python -m repoinsight.cli ask "Analyze this project architecture" --path .
 python -m repoinsight.cli ask "Analyze this project and generate a structured report" --path .
 python -m repoinsight.cli ask "Run pytest and analyze failures" --path .
@@ -96,6 +100,15 @@ Markdown/JSON report paths when returned, and a short answer preview.
 The `profile` command does not require `OPENAI_API_KEY`. It does not call an LLM,
 run commands, or write reports.
 
+The `workflow` command runs a LangGraph workflow:
+
+```text
+Profile -> Plan -> Evidence -> Analyze -> Report
+```
+
+By default it uses `--no-llm`, does not require an API key, and generates
+`reports/workflow_analysis_report.md` plus `reports/workflow_analysis_report.json`.
+
 ## Current Capabilities
 
 - Can read the project directory structure.
@@ -109,6 +122,7 @@ run commands, or write reports.
   key config files.
 - Can generate paired Markdown and JSON reports from one structured schema.
 - Can generate Markdown reports under `reports/*.md` for compatibility.
+- Can run a deterministic LangGraph workflow without an API key.
 - Does not run arbitrary shell commands.
 - Does not install dependencies.
 - Does not modify source files.
@@ -161,6 +175,9 @@ Structured reports are generated from the same `AnalysisReport` object. The
 Markdown renderer is for humans; the JSON writer is for later Web UI work,
 regression tests, and Agent evaluation.
 
+Workflow mode defaults to no LLM. It does not run build commands, does not
+modify source files, and only writes generated reports under `reports/`.
+
 ## Roadmap
 
 - v0.1: project skeleton, CLI, file tools, search tools, report tools.
@@ -168,5 +185,5 @@ regression tests, and Agent evaluation.
 - v0.3: safe command execution and Git analysis tools.
 - v0.4: Project Detector and repository profile.
 - v0.5: Structured Markdown + JSON reports.
-- v0.6: LangGraph workflow.
+- v0.6: LangGraph deterministic workflow.
 - v1.0: stable open-source release.

@@ -4,13 +4,15 @@ RepoInsight Agent 是一个基于 LangChain 的本地代码仓库分析 Agent。
 项目路径和分析目标后，Agent 可以读取目录结构、搜索代码、读取关键文本文件，并
 在 `project_root/reports` 下生成 Markdown 分析报告。
 
-当前状态：v0.5，已接入 LangChain Agent runtime、结构化报告、项目画像识别、
-安全命令执行工具和 Git 分析工具。暂不支持 LangGraph。
+当前状态：v0.6，已接入 LangGraph 工作流模式、结构化报告、项目画像识别、
+安全命令执行工具和 Git 分析工具。原有 LangChain Agent `ask` 模式仍然保留。
 
 ## 当前功能
 
 - 使用 Typer 实现 CLI，并用 Rich 美化输出。
 - 使用 `langchain.agents.create_agent` 创建 Agent。
+- 支持 LangGraph 工作流模式。
+- 支持不需要 API Key 的 no-LLM 确定性仓库分析。
 - 支持 OpenAI 或 OpenAI-compatible Chat API。
 - 支持不依赖 API Key 的确定性项目画像识别。
 - 自动识别 Python / Node / React / Vue / Vite / Next.js。
@@ -68,6 +70,7 @@ repoinsight version
 repoinsight scan --path ./some-project
 repoinsight profile --path ./some-project
 repoinsight profile --path ./some-project --json
+repoinsight workflow "分析这个项目是否适合开源发布" --path ./some-project --no-llm
 repoinsight ask "分析这个项目的技术栈、入口文件和主要模块" --path ./some-project
 repoinsight ask "分析这个项目并生成结构化报告" --path ./some-project
 repoinsight ask "运行 pytest 并分析失败原因" --path ./some-project
@@ -82,6 +85,7 @@ python -m repoinsight.cli version
 python -m repoinsight.cli scan --path .
 python -m repoinsight.cli profile --path .
 python -m repoinsight.cli profile --path . --json
+python -m repoinsight.cli workflow "分析这个项目是否适合开源发布" --path . --no-llm
 python -m repoinsight.cli ask "Analyze this project architecture" --path .
 python -m repoinsight.cli ask "分析这个项目并生成结构化报告" --path .
 python -m repoinsight.cli ask "运行 pytest 并分析失败原因" --path .
@@ -93,6 +97,15 @@ python -m repoinsight.cli ask "运行 pnpm build 并分析构建警告" --path .
 并输出报告目录、返回的 Markdown/JSON 报告路径和简短结果摘要。
 
 `profile` 命令不需要 `OPENAI_API_KEY`，不会调用 LLM，不会执行命令，也不会写报告。
+
+`workflow` 命令运行 LangGraph 工作流：
+
+```text
+项目画像 -> 分析计划 -> 证据收集 -> 结构化分析 -> 报告生成
+```
+
+默认使用 `--no-llm`，不需要 API Key，并生成
+`reports/workflow_analysis_report.md` 和 `reports/workflow_analysis_report.json`。
 
 ## 当前能力
 
@@ -106,6 +119,7 @@ python -m repoinsight.cli ask "运行 pnpm build 并分析构建警告" --path .
 - 可以识别入口文件、脚本命令、包管理器、依赖和关键配置文件。
 - 可以从同一个结构化 schema 生成 Markdown 和 JSON 报告。
 - 可以生成 `reports/*.md` Markdown 报告。
+- 可以运行不需要 API Key 的确定性 LangGraph workflow。
 - 不支持任意 shell 命令。
 - 不支持安装依赖。
 - 暂不支持修改源码文件。
@@ -152,6 +166,9 @@ Agent 只能通过 `shell=False` 执行明确白名单命令。当前允许：
 结构化报告来自同一个 `AnalysisReport` 对象。Markdown 给人阅读，JSON 便于后续
 Web UI、回归测试和 Agent 评测。
 
+workflow 模式默认不调用 LLM，不执行构建命令，不修改源码，只会在 `reports/`
+下写入生成报告。
+
 ## GitHub 提交前检查
 
 提交到 GitHub 前，请确认 `.env`、本地报告、缓存目录、虚拟环境和生成的索引文件没有被 Git 跟踪。
@@ -163,5 +180,5 @@ Web UI、回归测试和 Agent 评测。
 - v0.3：加入安全命令执行和 Git 分析工具。
 - v0.4：加入 Project Detector 和仓库画像识别。
 - v0.5：加入结构化 Markdown + JSON 报告。
-- v0.6：加入 LangGraph 工作流。
+- v0.6：加入 LangGraph 确定性工作流。
 - v1.0：开源稳定版本。

@@ -85,3 +85,23 @@ def test_profile_command_outputs_json_without_api_key(monkeypatch, tmp_path: Pat
     parsed = json.loads(result.output)
     assert "React" in parsed["frameworks"]
     assert parsed["root"] == project.name
+
+
+def test_workflow_command_runs_without_api_key(monkeypatch, tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "README.md").write_text("# Demo\n", encoding="utf-8")
+    (project / "pyproject.toml").write_text("[project]\nname = 'demo'\n", encoding="utf-8")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    result = runner.invoke(
+        cli.app,
+        ["workflow", "Analyze project", "--path", str(project), "--no-llm"],
+    )
+
+    assert result.exit_code == 0
+    assert "Workflow finished." in result.output
+    assert "Markdown report path:" in result.output
+    assert "JSON report path:" in result.output
+    assert (project / "reports" / "workflow_analysis_report.md").is_file()
+    assert (project / "reports" / "workflow_analysis_report.json").is_file()

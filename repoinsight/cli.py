@@ -73,6 +73,40 @@ def profile(
 
 
 @app.command()
+def workflow(
+    task: str = typer.Argument(..., help="Analysis task for the workflow."),
+    path: str = typer.Option(..., "--path", "-p", help="Local project path to analyze."),
+    no_llm: bool = typer.Option(
+        True,
+        "--no-llm/--with-llm",
+        help="Run deterministic workflow without LLM, or request LLM mode when available.",
+    ),
+) -> None:
+    """Run the LangGraph workflow mode."""
+    root = resolve_project_path(path)
+    if not no_llm:
+        console.print(
+            "[yellow]LLM workflow analysis is not implemented yet; "
+            "deterministic analysis will be used.[/yellow]"
+        )
+
+    from repoinsight.workflow.graph import run_workflow
+
+    result = run_workflow(str(root), task, no_llm=no_llm)
+    profile_data = result.get("profile") or {}
+    console.print("[green]Workflow finished.[/green]")
+    console.print(f"Project types: {_join_values(profile_data.get('project_types', []))}")
+    console.print(f"Languages: {_join_values(profile_data.get('languages', []))}")
+    console.print(f"Frameworks: {_join_values(profile_data.get('frameworks', []))}")
+    console.print(f"Markdown report path: {result.get('markdown_report_path') or '-'}")
+    console.print(f"JSON report path: {result.get('json_report_path') or '-'}")
+    _print_state_messages("Warnings", result.get("warnings", []), "yellow")
+    _print_state_messages("Errors", result.get("errors", []), "red")
+    if result.get("errors"):
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def ask(
     question: str = typer.Argument(..., help="Analysis question for the Agent."),
     path: str = typer.Option(..., "--path", "-p", help="Local project path to analyze."),
@@ -181,6 +215,14 @@ def _format_scripts(items: list[dict[str, Any]]) -> str:
     if not items:
         return "-"
     return "\n".join(f"{item.get('name', '-')}: {item.get('command', '-')}" for item in items)
+
+
+def _print_state_messages(title: str, messages: list[Any], style: str) -> None:
+    if not messages:
+        return
+    console.print(f"[{style}]{title}:[/{style}]")
+    for message in messages:
+        console.print(f"- {message}")
 
 
 def _extract_answer_preview(result: Any, max_chars: int = 500) -> str:

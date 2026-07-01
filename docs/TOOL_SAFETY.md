@@ -42,6 +42,20 @@ letters, digits, underscores, and hyphens. Path traversal such as
 `../report.json` is rejected. Structured report writing does not modify source
 files.
 
+## Workflow Safety
+
+The `workflow` CLI command defaults to `--no-llm`, so it does not require
+`OPENAI_API_KEY`. In v0.6, `--with-llm` falls back to deterministic analysis and
+emits a clear warning because LLM workflow analysis is not implemented yet.
+
+Workflow mode does not run build commands or tests. It only collects project
+profile data, Git status/diff-stat evidence through the safe Git tools, and
+limited key configuration file excerpts. It does not modify source files.
+
+The only workflow write step is `report_node`, which writes
+`reports/workflow_analysis_report.md` and
+`reports/workflow_analysis_report.json`.
+
 ## Why Arbitrary Shell Commands Are Not Allowed
 
 Arbitrary shell access can delete files, move source code, leak local data,
@@ -115,9 +129,9 @@ in stderr.
 
 ## Current Limitations
 
-v0.5 does not modify source files. The Agent can use safe local file, search,
-report, Git inspection, project profile, structured report, and whitelist
-command primitives. Its only write-capable tools create reports under
+v0.6 does not modify source files. The Agent and workflow can use safe local
+file, search, report, Git inspection, project profile, structured report, and
+whitelist command primitives. Their only write-capable tools create reports under
 `project_root/reports`.
 
 Before pushing to GitHub, make sure `.env`, local reports, caches, virtual

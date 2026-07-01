@@ -22,7 +22,7 @@ Structured Markdown + JSON reports.
 
 ## v0.6
 
-Add a LangGraph workflow for multi-step repository analysis.
+LangGraph deterministic workflow.
 
 ## v1.0
 
