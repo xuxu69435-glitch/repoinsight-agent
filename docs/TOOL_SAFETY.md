@@ -45,12 +45,18 @@ files.
 ## Workflow Safety
 
 The `workflow` CLI command defaults to `--no-llm`, so it does not require
-`OPENAI_API_KEY`. In v0.6, `--with-llm` falls back to deterministic analysis and
-emits a clear warning because LLM workflow analysis is not implemented yet.
+`OPENAI_API_KEY`. In v0.7, `--with-llm` requires `OPENAI_API_KEY`; if the key is
+missing, the CLI exits with a clear error instead of pretending that LLM
+analysis succeeded.
 
 Workflow mode does not run build commands or tests. It only collects project
 profile data, Git status/diff-stat evidence through the safe Git tools, and
 limited key configuration file excerpts. It does not modify source files.
+
+The workflow LLM analyzer does not receive tools and does not directly access
+the filesystem. It cannot execute commands, read additional files, or write
+files. It only receives the profile, plan, and evidence already collected by the
+workflow, and must return an `AnalysisReport` JSON object.
 
 The only workflow write step is `report_node`, which writes
 `reports/workflow_analysis_report.md` and
@@ -129,7 +135,7 @@ in stderr.
 
 ## Current Limitations
 
-v0.6 does not modify source files. The Agent and workflow can use safe local
+v0.7 does not modify source files. The Agent and workflow can use safe local
 file, search, report, Git inspection, project profile, structured report, and
 whitelist command primitives. Their only write-capable tools create reports under
 `project_root/reports`.

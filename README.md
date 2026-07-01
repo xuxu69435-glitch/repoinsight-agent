@@ -5,9 +5,9 @@ provide a local project path and an analysis goal. The Agent can inspect the
 directory tree, search code, read key text files, and generate Markdown and JSON
 reports under `project_root/reports`.
 
-Current status: v0.6 with LangGraph workflow mode, structured reports, Project
-Detector, safe command execution, and Git analysis tools. The existing
-LangChain Agent `ask` mode remains available.
+Current status: v0.7 with LLM-enhanced LangGraph workflow analysis, structured
+reports, Project Detector, safe command execution, and Git analysis tools. The
+existing LangChain Agent `ask` mode remains available.
 
 ## Current Features
 
@@ -15,6 +15,10 @@ LangChain Agent `ask` mode remains available.
 - LangChain Agent runtime through `langchain.agents.create_agent`.
 - LangGraph workflow mode for deterministic repository analysis.
 - No-LLM workflow path that does not require an API key.
+- LLM-enhanced workflow analysis when `--with-llm` is used with an API key.
+- Mockable LLM workflow analyzer for tests.
+- `--no-llm` deterministic workflow mode remains the default.
+- `--with-llm` generates a deeper structured `AnalysisReport` when configured.
 - OpenAI or OpenAI-compatible chat model configuration.
 - Deterministic project profile detection without an API key.
 - Python, Node.js, React, Vue, Vite, Next.js, TypeScript, and JavaScript hints.
@@ -71,6 +75,7 @@ repoinsight scan --path ./some-project
 repoinsight profile --path ./some-project
 repoinsight profile --path ./some-project --json
 repoinsight workflow "Analyze this project for open-source readiness" --path ./some-project --no-llm
+repoinsight workflow "Analyze this project for open-source readiness" --path ./some-project --with-llm
 repoinsight ask "Analyze this project architecture" --path ./some-project
 repoinsight ask "Analyze this project and generate a structured report" --path ./some-project
 repoinsight ask "Run pytest and analyze failures" --path ./some-project
@@ -86,6 +91,7 @@ python -m repoinsight.cli scan --path .
 python -m repoinsight.cli profile --path .
 python -m repoinsight.cli profile --path . --json
 python -m repoinsight.cli workflow "Analyze this project for open-source readiness" --path . --no-llm
+python -m repoinsight.cli workflow "Analyze this project for open-source readiness" --path . --with-llm
 python -m repoinsight.cli ask "Analyze this project architecture" --path .
 python -m repoinsight.cli ask "Analyze this project and generate a structured report" --path .
 python -m repoinsight.cli ask "Run pytest and analyze failures" --path .
@@ -108,6 +114,9 @@ Profile -> Plan -> Evidence -> Analyze -> Report
 
 By default it uses `--no-llm`, does not require an API key, and generates
 `reports/workflow_analysis_report.md` plus `reports/workflow_analysis_report.json`.
+With `--with-llm`, it requires `OPENAI_API_KEY` and asks the workflow LLM
+analyzer to generate the structured `AnalysisReport` from the profile, plan,
+and evidence already collected by the workflow.
 
 ## Current Capabilities
 
@@ -123,6 +132,8 @@ By default it uses `--no-llm`, does not require an API key, and generates
 - Can generate paired Markdown and JSON reports from one structured schema.
 - Can generate Markdown reports under `reports/*.md` for compatibility.
 - Can run a deterministic LangGraph workflow without an API key.
+- Can run an LLM-enhanced workflow with `--with-llm` when an API key is
+  configured.
 - Does not run arbitrary shell commands.
 - Does not install dependencies.
 - Does not modify source files.
@@ -177,6 +188,10 @@ regression tests, and Agent evaluation.
 
 Workflow mode defaults to no LLM. It does not run build commands, does not
 modify source files, and only writes generated reports under `reports/`.
+When `--with-llm` is used, the LLM only receives the workflow profile, plan, and
+evidence. It does not directly access the filesystem, execute commands, or write
+files. Report persistence still happens through `report_node` and the structured
+report writer under `reports/`.
 
 ## Roadmap
 
@@ -186,4 +201,5 @@ modify source files, and only writes generated reports under `reports/`.
 - v0.4: Project Detector and repository profile.
 - v0.5: Structured Markdown + JSON reports.
 - v0.6: LangGraph deterministic workflow.
+- v0.7: LLM-enhanced workflow analyzer.
 - v1.0: stable open-source release.

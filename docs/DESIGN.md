@@ -15,7 +15,8 @@ Current commands:
 - `profile`: validates a project path and prints a deterministic project
   profile as a Rich table or JSON.
 - `workflow`: runs the LangGraph workflow mode and writes structured Markdown
-  and JSON reports without requiring an API key in default no-LLM mode.
+  and JSON reports. It defaults to deterministic no-LLM mode, and can use an
+  LLM analyzer with `--with-llm` when an API key is configured.
 - `ask`: validates a project path, creates the Agent, invokes it, and prints the
   report location plus a short answer preview.
 
@@ -69,10 +70,13 @@ output.
 The workflow layer lives in `repoinsight/workflow`.
 
 - `state.py`: defines `RepoInsightState`, including project root, task, profile,
-  plan, evidence, report paths, warnings, and errors.
+  plan, evidence, report paths, warnings, errors, LLM usage metadata, and
+  analysis mode.
 - `nodes.py`: implements the workflow nodes.
+- `llm_analyzer.py`: builds a tool-free ChatOpenAI client, constructs the
+  workflow analysis prompt, parses JSON, and validates `AnalysisReport` output.
 - `graph.py`: builds and runs the LangGraph `StateGraph`.
-- `prompts.py`: reserves prompt text for future mockable LLM workflow analysis.
+- `prompts.py`: keeps reusable prompt snippets for workflow analysis.
 
 The v0.6 graph is:
 
@@ -85,12 +89,17 @@ The nodes are:
 - `profile_node`: deterministic project profile.
 - `plan_node`: deterministic analysis plan.
 - `evidence_node`: project profile, Git status/diff-stat, and key config evidence.
-- `analyze_node`: deterministic `AnalysisReport` generation in no-LLM mode.
+- `analyze_node`: deterministic `AnalysisReport` generation in no-LLM mode,
+  LLM `AnalysisReport` generation in `--with-llm` mode, and deterministic
+  fallback when the LLM call or schema validation fails.
 - `report_node`: writes `workflow_analysis_report.md` and
   `workflow_analysis_report.json`.
 
 Workflow mode is separate from the existing `ask` Agent mode. It is more
 observable and testable, and defaults to deterministic `--no-llm` execution.
+`build_workflow(config)` injects configuration into `analyze_node` through a
+closure, which lets tests monkeypatch the LLM analyzer without calling a real
+model.
 
 ## Agent Layer
 

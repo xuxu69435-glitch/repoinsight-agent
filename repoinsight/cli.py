@@ -23,6 +23,10 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 console = Console()
+WORKFLOW_CLI_API_KEY_ERROR = (
+    "OPENAI_API_KEY is required for --with-llm. "
+    "Use --no-llm for deterministic workflow."
+)
 
 
 @app.command()
@@ -84,17 +88,30 @@ def workflow(
 ) -> None:
     """Run the LangGraph workflow mode."""
     root = resolve_project_path(path)
+    config = None
     if not no_llm:
-        console.print(
-            "[yellow]LLM workflow analysis is not implemented yet; "
-            "deterministic analysis will be used.[/yellow]"
-        )
+        try:
+            config = load_config()
+        except ValueError as exc:
+            console.print(f"[red]Configuration error:[/red] {exc}")
+            raise typer.Exit(code=1) from exc
+        if not config.openai_api_key:
+            console.print(f"[red]{WORKFLOW_CLI_API_KEY_ERROR}[/red]")
+            raise typer.Exit(code=1)
 
     from repoinsight.workflow.graph import run_workflow
 
-    result = run_workflow(str(root), task, no_llm=no_llm)
+    try:
+        result = run_workflow(str(root), task, no_llm=no_llm, config=config)
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from exc
+
     profile_data = result.get("profile") or {}
     console.print("[green]Workflow finished.[/green]")
+    console.print(f"Analysis mode: {result.get('analysis_mode') or '-'}")
+    console.print(f"LLM used: {_format_bool(result.get('llm_used'))}")
+    console.print(f"LLM model: {result.get('llm_model') or '-'}")
     console.print(f"Project types: {_join_values(profile_data.get('project_types', []))}")
     console.print(f"Languages: {_join_values(profile_data.get('languages', []))}")
     console.print(f"Frameworks: {_join_values(profile_data.get('frameworks', []))}")
@@ -203,6 +220,10 @@ def _join_values(values: list[Any]) -> str:
     if not values:
         return "-"
     return ", ".join(str(value) for value in values)
+
+
+def _format_bool(value: Any) -> str:
+    return "true" if value is True else "false"
 
 
 def _format_path_items(items: list[dict[str, Any]]) -> str:

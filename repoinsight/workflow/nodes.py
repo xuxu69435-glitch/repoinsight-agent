@@ -12,9 +12,11 @@ from repoinsight.agent.schemas import (
     Recommendation,
 )
 from repoinsight.analyzers.project_detector import detect_project
+from repoinsight.config import AppConfig
 from repoinsight.tools.file_tools import read_file
 from repoinsight.tools.git_tools import git_diff, git_status
 from repoinsight.tools.report_tools import write_structured_report
+from repoinsight.workflow.llm_analyzer import analyze_with_llm
 from repoinsight.workflow.state import RepoInsightState
 
 KEY_FILES = ("README.md", "README.zh-CN.md", "package.json", "pyproject.toml", "requirements.txt")
@@ -30,21 +32,15 @@ def profile_node(state: RepoInsightState) -> dict[str, Any]:
 
 def plan_node(state: RepoInsightState) -> dict[str, Any]:
     """Generate a deterministic analysis plan."""
-    plan = [
-        "Inspect project profile",
-        "Review key configuration files",
-        "Check git status",
-        "Collect dependency and script evidence",
-        "Generate structured report",
-    ]
-    if not state["no_llm"]:
-        return {
-            "plan": plan,
-            "warnings": [
-                "LLM workflow analysis is not implemented yet; deterministic analysis was used."
-            ],
-        }
-    return {"plan": plan}
+    return {
+        "plan": [
+            "Inspect project profile",
+            "Review key configuration files",
+            "Check git status",
+            "Collect dependency and script evidence",
+            "Generate structured report",
+        ]
+    }
 
 
 def evidence_node(state: RepoInsightState) -> dict[str, Any]:
@@ -107,16 +103,58 @@ def evidence_node(state: RepoInsightState) -> dict[str, Any]:
     return {"evidence": evidence, "warnings": warnings}
 
 
-def analyze_node(state: RepoInsightState) -> dict[str, Any]:
-    """Generate a deterministic AnalysisReport from workflow evidence."""
-    profile = state.get("profile") or {}
-    warnings: list[str] = []
-    if not state["no_llm"]:
-        warnings.append(
-            "LLM workflow analysis is not implemented yet; deterministic analysis was used."
+def analyze_node(state: RepoInsightState, config: AppConfig | None = None) -> dict[str, Any]:
+    """Generate an AnalysisReport from workflow evidence."""
+    if state["no_llm"]:
+        report = _build_deterministic_report(state)
+        return {
+            "report": report.model_dump(),
+            "llm_used": False,
+            "llm_model": None,
+            "analysis_mode": "deterministic",
+        }
+
+    if config is None:
+        return _llm_fallback_result(
+            state,
+            "AppConfig is required for LLM workflow analysis.",
+            llm_model=state.get("llm_model"),
         )
 
-    report = AnalysisReport(
+    try:
+        report = analyze_with_llm(
+            task=state["task"],
+            profile=state.get("profile") or {},
+            plan=state.get("plan", []),
+            evidence=state.get("evidence", []),
+            config=config,
+        )
+    except Exception as exc:
+        return _llm_fallback_result(state, str(exc), llm_model=config.openai_model)
+
+    return {
+        "report": report.model_dump(),
+        "llm_used": True,
+        "llm_model": config.openai_model,
+        "analysis_mode": "llm",
+    }
+
+
+def _build_deterministic_report(
+    state: RepoInsightState,
+    extra_limitations: list[str] | None = None,
+) -> AnalysisReport:
+    profile = state.get("profile") or {}
+    limitations = [
+        "Deterministic workflow does not perform deep semantic code analysis.",
+        "LLM was not used.",
+        "Evidence is limited to project profile, key config files, and Git summary.",
+        "No build or test commands were executed by the workflow.",
+    ]
+    if extra_limitations:
+        limitations.extend(extra_limitations)
+
+    return AnalysisReport(
         title="RepoInsight Workflow Analysis Report",
         task=state["task"],
         project_summary=_project_summary_from_profile(profile),
@@ -124,16 +162,32 @@ def analyze_node(state: RepoInsightState) -> dict[str, Any]:
         findings=_build_findings(profile, state.get("evidence", [])),
         recommendations=_build_recommendations(profile, state.get("evidence", [])),
         evidence_files=_safe_string_list(profile.get("evidence_files", [])),
-        limitations=[
-            "Workflow ran in deterministic mode and did not perform deep semantic code analysis.",
-            "No build or test commands were executed by the workflow.",
-        ],
+        limitations=limitations,
         next_steps=[
             "Review the generated Markdown and JSON reports.",
             "Run targeted tests or builds separately if deeper validation is needed.",
         ],
     )
-    return {"report": report.model_dump(), "warnings": warnings}
+
+
+def _llm_fallback_result(
+    state: RepoInsightState,
+    reason: str,
+    llm_model: str | None,
+) -> dict[str, Any]:
+    report = _build_deterministic_report(
+        state,
+        extra_limitations=[
+            "LLM workflow analysis failed; deterministic analysis was used as fallback."
+        ],
+    )
+    return {
+        "report": report.model_dump(),
+        "warnings": [f"LLM workflow analysis failed: {reason}"],
+        "llm_used": False,
+        "llm_model": llm_model,
+        "analysis_mode": "llm_fallback",
+    }
 
 
 def report_node(state: RepoInsightState) -> dict[str, Any]:

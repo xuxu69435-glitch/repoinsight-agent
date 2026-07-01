@@ -20,9 +20,17 @@ class RepoInsightState(TypedDict):
     json_report_path: str | None
     errors: Annotated[list[str], operator.add]
     warnings: Annotated[list[str], operator.add]
+    llm_used: bool
+    llm_model: str | None
+    analysis_mode: str
 
 
-def create_initial_state(project_root: str, task: str, no_llm: bool = True) -> RepoInsightState:
+def create_initial_state(
+    project_root: str,
+    task: str,
+    no_llm: bool = True,
+    llm_model: str | None = None,
+) -> RepoInsightState:
     """Create an initial workflow state."""
     return {
         "project_root": project_root,
@@ -36,4 +44,7 @@ def create_initial_state(project_root: str, task: str, no_llm: bool = True) -> R
         "json_report_path": None,
         "errors": [],
         "warnings": [],
+        "llm_used": False,
+        "llm_model": llm_model,
+        "analysis_mode": "deterministic" if no_llm else "llm",
     }

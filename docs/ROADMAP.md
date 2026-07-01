@@ -24,6 +24,10 @@ Structured Markdown + JSON reports.
 
 LangGraph deterministic workflow.
 
+## v0.7
+
+LLM-enhanced workflow analyzer with deterministic fallback and mockable tests.
+
 ## v1.0
 
 Stable open-source release with documented APIs and safer defaults.

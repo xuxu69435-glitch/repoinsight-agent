@@ -101,7 +101,66 @@ def test_workflow_command_runs_without_api_key(monkeypatch, tmp_path: Path) -> N
 
     assert result.exit_code == 0
     assert "Workflow finished." in result.output
+    assert "Analysis mode: deterministic" in result.output
+    assert "LLM used: false" in result.output
+    assert "LLM model: -" in result.output
     assert "Markdown report path:" in result.output
     assert "JSON report path:" in result.output
     assert (project / "reports" / "workflow_analysis_report.md").is_file()
     assert (project / "reports" / "workflow_analysis_report.json").is_file()
+
+
+def test_workflow_command_with_llm_requires_api_key(monkeypatch, tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "pyproject.toml").write_text("[project]\nname = 'demo'\n", encoding="utf-8")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    result = runner.invoke(
+        cli.app,
+        ["workflow", "Analyze project", "--path", str(project), "--with-llm"],
+    )
+
+    assert result.exit_code != 0
+    assert "OPENAI_API_KEY is required for --with-llm" in result.output
+
+
+def test_workflow_command_prints_llm_metadata_with_mock(monkeypatch, tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("OPENAI_MODEL", "mock-model")
+
+    def fake_run_workflow(
+        project_root: str,
+        task: str,
+        no_llm: bool = True,
+        config: Any = None,
+    ) -> dict[str, Any]:
+        assert Path(project_root) == project.resolve()
+        assert task == "Analyze project"
+        assert no_llm is False
+        assert config.openai_api_key == "test-key"
+        assert config.openai_model == "mock-model"
+        return {
+            "profile": {"project_types": ["Python"], "languages": ["Python"], "frameworks": []},
+            "analysis_mode": "llm",
+            "llm_used": True,
+            "llm_model": "mock-model",
+            "markdown_report_path": str(project / "reports" / "workflow_analysis_report.md"),
+            "json_report_path": str(project / "reports" / "workflow_analysis_report.json"),
+            "warnings": [],
+            "errors": [],
+        }
+
+    monkeypatch.setattr("repoinsight.workflow.graph.run_workflow", fake_run_workflow)
+
+    result = runner.invoke(
+        cli.app,
+        ["workflow", "Analyze project", "--path", str(project), "--with-llm"],
+    )
+
+    assert result.exit_code == 0
+    assert "Analysis mode: llm" in result.output
+    assert "LLM used: true" in result.output
+    assert "LLM model: mock-model" in result.output
