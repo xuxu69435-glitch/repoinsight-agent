@@ -28,6 +28,24 @@ LangGraph deterministic workflow.
 
 LLM-enhanced workflow analyzer with deterministic fallback and mockable tests.
 
+## v0.7.1
+
+Stabilization release with:
+
+- `doctor` command for local environment diagnostics.
+- Clear reports write diagnostics for directory and file permission failures.
+- Ruff and pytest cache permission troubleshooting.
+
+## v0.8.0
+
+GitHub-ready release with complete README files, CI, release checklist,
+contribution guide, changelog, security policy, issue templates, and resume
+project summary.
+
+## v0.9
+
+Example gallery and more project detectors.
+
 ## v1.0
 
-Stable open-source release with documented APIs and safer defaults.
+Stable CLI and packaged release.

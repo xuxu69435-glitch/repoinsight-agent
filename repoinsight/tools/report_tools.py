@@ -10,17 +10,25 @@ from repoinsight.agent.schemas import AnalysisReport
 from repoinsight.reporting.json_writer import write_json_report
 from repoinsight.reporting.markdown_renderer import render_analysis_report
 from repoinsight.utils.path_guard import ensure_path_in_project, resolve_project_path
+from repoinsight.utils.report_guard import (
+    ensure_report_file_writable,
+    ensure_reports_dir,
+    report_write_error_for_exception,
+)
 
 
 def write_report(project_root: str, filename: str, content: str) -> dict[str, Any]:
     """Write a Markdown report into project_root/reports."""
     safe_name = _validate_report_filename(filename)
     root = resolve_project_path(project_root)
-    reports_dir = ensure_path_in_project(root, root / "reports")
-    reports_dir.mkdir(parents=True, exist_ok=True)
+    reports_dir = ensure_reports_dir(root)
 
     report_path = ensure_path_in_project(root, reports_dir / safe_name)
-    report_path.write_text(content, encoding="utf-8")
+    ensure_report_file_writable(report_path)
+    try:
+        report_path.write_text(content, encoding="utf-8")
+    except OSError as exc:
+        raise report_write_error_for_exception(report_path, exc) from exc
 
     return {"report_path": str(report_path), "size_chars": len(content)}
 

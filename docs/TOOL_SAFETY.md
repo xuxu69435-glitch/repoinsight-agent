@@ -42,6 +42,22 @@ letters, digits, underscores, and hyphens. Path traversal such as
 `../report.json` is rejected. Structured report writing does not modify source
 files.
 
+`project_root/reports` is the only generated report write location. Report
+writers do not fall back to paths outside the selected project root. If
+`reports/` or the target report file is not writable, RepoInsight reports a
+clear permission error instead of silently swallowing the failure.
+
+## Doctor Safety
+
+The `doctor` CLI command only checks local environment and project directory
+readiness. It can create a missing `reports/` directory, but it does not delete
+files, modify source files, run builds, call an LLM, or read sensitive file
+contents.
+
+`doctor` checks whether `.env` exists without printing its contents. It reports
+whether `OPENAI_API_KEY` is configured as yes/no and never prints the API key
+value.
+
 ## Workflow Safety
 
 The `workflow` CLI command defaults to `--no-llm`, so it does not require
@@ -135,7 +151,7 @@ in stderr.
 
 ## Current Limitations
 
-v0.7 does not modify source files. The Agent and workflow can use safe local
+v0.8.0 does not modify source files. The Agent and workflow can use safe local
 file, search, report, Git inspection, project profile, structured report, and
 whitelist command primitives. Their only write-capable tools create reports under
 `project_root/reports`.

@@ -2,15 +2,19 @@
 
 ## Summary
 
-This is a static example report for the v0.1 skeleton. The real Agent runtime is
-not implemented yet.
+This is a static example report showing the shape of a RepoInsight workflow
+Markdown report. Real workflow runs also write a paired JSON report.
 
 ## Findings
 
-- The project structure should be inspected before reading individual files.
-- Findings should include evidence file paths whenever possible.
+- The project profile identifies languages, frameworks, entry points, package
+  managers, and key configuration files.
+- Git evidence can include status, diff statistics, and recent history without
+  mutating the repository.
+- Reports should include evidence file paths whenever possible.
 
 ## Recommendations
 
-- Add LangChain tool wrappers in v0.2.
-- Add safe command execution in v0.3.
+- Run `python -m repoinsight.cli doctor --path .` before a release.
+- Use `workflow --no-llm` when an API key is not available.
+- Review generated Markdown and JSON reports under `reports/`.

@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install project
+        run: python -m pip install -e ".[dev]"
+
+      - name: Run Ruff
+        run: python -m ruff check . --no-cache
+
+      - name: Run tests
+        run: python -m pytest
+
+      - name: Check CLI version
+        run: python -m repoinsight.cli version
+
+      - name: Run scan
+        run: python -m repoinsight.cli scan --path .
+
+      - name: Run profile JSON
+        run: python -m repoinsight.cli profile --path . --json
+
+      - name: Run doctor
+        run: python -m repoinsight.cli doctor --path .
+
+      - name: Run no-LLM workflow
+        run: python -m repoinsight.cli workflow "Analyze this project for open-source readiness" --path . --no-llm

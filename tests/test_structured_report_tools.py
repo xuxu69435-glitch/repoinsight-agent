@@ -8,6 +8,8 @@ import pytest
 from repoinsight.agent.schemas import AnalysisReport, ProjectSummary
 from repoinsight.reporting.json_writer import write_json_report
 from repoinsight.tools.report_tools import write_structured_report
+from repoinsight.utils import report_guard
+from repoinsight.utils.report_guard import ReportWriteError
 
 
 def _sample_report_dict() -> dict:
@@ -75,6 +77,25 @@ def test_write_json_report_rejects_bad_filename(tmp_path: Path) -> None:
         write_json_report(str(project), "bad.md", report)
 
 
+def test_write_json_report_reports_unwritable_reports_directory(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    reports_dir = project / "reports"
+    reports_dir.mkdir()
+    resolved_reports = reports_dir.resolve()
+
+    def fake_access(path: str | Path, mode: int) -> bool:
+        return Path(path).resolve(strict=False) != resolved_reports
+
+    monkeypatch.setattr(report_guard.os, "access", fake_access)
+
+    with pytest.raises(ReportWriteError, match="Reports directory is not writable"):
+        write_json_report(str(project), "analysis_report.json", AnalysisReport())
+
+
 def test_write_structured_report_accepts_dict_and_writes_md_and_json(tmp_path: Path) -> None:
     project = tmp_path / "project"
     project.mkdir()
@@ -109,3 +130,22 @@ def test_write_structured_report_rejects_dangerous_filename(tmp_path: Path) -> N
         write_structured_report(str(project), "../analysis_report.json", _sample_report_dict())
     with pytest.raises(ValueError, match="may only contain"):
         write_structured_report(str(project), "analysis report.json", _sample_report_dict())
+
+
+def test_write_structured_report_reports_unwritable_reports_directory(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    reports_dir = project / "reports"
+    reports_dir.mkdir()
+    resolved_reports = reports_dir.resolve()
+
+    def fake_access(path: str | Path, mode: int) -> bool:
+        return Path(path).resolve(strict=False) != resolved_reports
+
+    monkeypatch.setattr(report_guard.os, "access", fake_access)
+
+    with pytest.raises(ReportWriteError, match="Reports directory is not writable"):
+        write_structured_report(str(project), "analysis_report.json", _sample_report_dict())

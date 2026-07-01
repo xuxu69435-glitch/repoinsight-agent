@@ -4,15 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "repoinsight-agent"
-version = "0.7.0"
-description = "A local repository analysis Agent skeleton built for future LangChain integration."
+version = "0.8.0"
+description = "A LangChain + LangGraph powered local codebase analysis agent."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "RepoInsight Contributors" }]
 keywords = ["agent", "code-analysis", "langchain", "cli", "repository"]
 classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
+    "Development Status :: 3 - Alpha",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",

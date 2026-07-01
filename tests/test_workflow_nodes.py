@@ -5,6 +5,7 @@ from pathlib import Path
 
 from repoinsight.agent.schemas import AnalysisReport
 from repoinsight.config import AppConfig
+from repoinsight.utils.report_guard import ReportWriteError
 from repoinsight.workflow.nodes import (
     analyze_node,
     evidence_node,
@@ -165,6 +166,34 @@ def test_report_node_writes_markdown_and_json(tmp_path: Path) -> None:
     assert json_path.name == "workflow_analysis_report.json"
     assert markdown_path.is_file()
     assert json.loads(json_path.read_text(encoding="utf-8"))["title"] == "Workflow Report"
+
+
+def test_report_node_records_write_failure(monkeypatch, tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    state = create_initial_state(str(project), "Analyze")
+    state["report"] = AnalysisReport(
+        title="Workflow Report",
+        task="Analyze",
+        executive_summary="Summary",
+    ).model_dump()
+
+    def fail_write_structured_report(*args, **kwargs):
+        raise ReportWriteError(
+            "Reports directory is not writable: "
+            f"{project / 'reports'}. Please check permissions or remove/recreate "
+            "the generated reports directory."
+        )
+
+    monkeypatch.setattr(
+        "repoinsight.workflow.nodes.write_structured_report",
+        fail_write_structured_report,
+    )
+
+    result = report_node(state)
+
+    assert "markdown_report_path" not in result
+    assert "Reports directory is not writable" in result["errors"][0]
 
 
 def _sample_analysis_state(no_llm: bool):

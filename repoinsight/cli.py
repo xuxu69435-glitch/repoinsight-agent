@@ -3,6 +3,11 @@
 from __future__ import annotations
 
 import json
+import os
+import shutil
+import subprocess
+import sys
+from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -17,6 +22,11 @@ from repoinsight.analyzers.project_detector import detect_project
 from repoinsight.config import DEFAULT_MAX_DEPTH, load_config
 from repoinsight.tools.file_tools import list_files
 from repoinsight.utils.path_guard import resolve_project_path
+from repoinsight.utils.report_guard import (
+    ReportWriteError,
+    ensure_report_file_writable,
+    ensure_reports_dir,
+)
 
 app = typer.Typer(
     help="Local repository analysis tools powered by a LangChain Agent.",
@@ -27,6 +37,13 @@ WORKFLOW_CLI_API_KEY_ERROR = (
     "OPENAI_API_KEY is required for --with-llm. "
     "Use --no-llm for deterministic workflow."
 )
+
+
+@dataclass(frozen=True)
+class DoctorCheck:
+    name: str
+    status: str
+    detail: str
 
 
 @app.command()
@@ -74,6 +91,17 @@ def profile(
 
     console.print(Panel.fit(f"Project: {root}", title="RepoInsight Profile"))
     console.print(_build_profile_table(detected))
+
+
+@app.command()
+def doctor(
+    path: str = typer.Option(..., "--path", "-p", help="Local project path to check."),
+) -> None:
+    """Check local RepoInsight prerequisites and report write readiness."""
+    checks = _run_doctor_checks(path)
+    console.print(_build_doctor_table(checks))
+    if any(check.status == "FAIL" for check in checks):
+        raise typer.Exit(code=1)
 
 
 @app.command()
@@ -214,6 +242,153 @@ def _build_profile_table(profile_data: dict[str, Any]) -> Table:
     table.add_row("Scripts", _format_scripts(profile_data.get("scripts", [])))
     table.add_row("Confidence", str(profile_data.get("confidence", 0)))
     return table
+
+
+def _run_doctor_checks(path: str) -> list[DoctorCheck]:
+    checks: list[DoctorCheck] = []
+    try:
+        root = resolve_project_path(path)
+    except (ValueError, FileNotFoundError, NotADirectoryError) as exc:
+        checks.append(DoctorCheck("Project path", "FAIL", str(exc)))
+        _append_environment_checks(checks, None)
+        return checks
+
+    checks.append(DoctorCheck("Project path", "OK", str(root)))
+    _append_reports_checks(checks, root)
+    _append_environment_checks(checks, root)
+    return checks
+
+
+def _append_reports_checks(checks: list[DoctorCheck], root: Path) -> None:
+    reports_dir = root / "reports"
+    existed = reports_dir.exists()
+    try:
+        ensured = ensure_reports_dir(root)
+    except ReportWriteError as exc:
+        checks.append(DoctorCheck("Reports directory", "FAIL", str(exc)))
+        checks.append(DoctorCheck("Reports writable", "FAIL", str(exc)))
+        return
+
+    action = "exists" if existed else "created"
+    checks.append(DoctorCheck("Reports directory", "OK", f"{action}: {ensured}"))
+    checks.append(DoctorCheck("Reports writable", "OK", str(ensured)))
+    _append_workflow_report_file_check(checks, ensured)
+
+
+def _append_environment_checks(checks: list[DoctorCheck], root: Path | None) -> None:
+    _append_env_file_check(checks, root)
+    api_key_configured = bool(os.environ.get("OPENAI_API_KEY"))
+    checks.append(
+        DoctorCheck(
+            "OPENAI_API_KEY",
+            "OK" if api_key_configured else "WARN",
+            f"configured: {'yes' if api_key_configured else 'no'}",
+        )
+    )
+
+    rg_path = shutil.which("rg") or shutil.which("ripgrep")
+    checks.append(
+        DoctorCheck(
+            "ripgrep",
+            "OK" if rg_path else "WARN",
+            rg_path or "rg/ripgrep was not found on PATH.",
+        )
+    )
+
+    git_path = shutil.which("git")
+    checks.append(
+        DoctorCheck(
+            "git",
+            "OK" if git_path else "WARN",
+            git_path or "git was not found on PATH.",
+        )
+    )
+    _append_git_repository_check(checks, root, git_path)
+
+    checks.append(DoctorCheck("Python version", "OK", sys.version.split()[0]))
+    checks.append(DoctorCheck("RepoInsight version", "OK", __version__))
+
+
+def _append_workflow_report_file_check(checks: list[DoctorCheck], reports_dir: Path) -> None:
+    for filename in ("workflow_analysis_report.md", "workflow_analysis_report.json"):
+        report_path = reports_dir / filename
+        try:
+            ensure_report_file_writable(report_path)
+        except ReportWriteError as exc:
+            checks.append(DoctorCheck("Workflow report file", "FAIL", str(exc)))
+            return
+    checks.append(
+        DoctorCheck(
+            "Workflow report files",
+            "OK",
+            "default workflow report filenames are writable",
+        )
+    )
+
+
+def _append_env_file_check(checks: list[DoctorCheck], root: Path | None) -> None:
+    if root is None:
+        checks.append(DoctorCheck(".env file", "WARN", "skipped because project path is invalid."))
+        return
+    env_path = root / ".env"
+    checks.append(
+        DoctorCheck(
+            ".env file",
+            "OK" if env_path.exists() else "WARN",
+            "exists" if env_path.exists() else "not found",
+        )
+    )
+
+
+def _append_git_repository_check(
+    checks: list[DoctorCheck],
+    root: Path | None,
+    git_path: str | None,
+) -> None:
+    if root is None:
+        checks.append(
+            DoctorCheck("Git repository", "WARN", "skipped because project path is invalid.")
+        )
+        return
+    if not git_path:
+        checks.append(DoctorCheck("Git repository", "WARN", "skipped because git is unavailable."))
+        return
+
+    try:
+        result = subprocess.run(
+            [git_path, "-C", str(root), "rev-parse", "--is-inside-work-tree"],
+            capture_output=True,
+            check=False,
+            shell=False,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        checks.append(DoctorCheck("Git repository", "WARN", f"could not check git: {exc}"))
+        return
+
+    if result.returncode == 0 and result.stdout.strip() == "true":
+        checks.append(DoctorCheck("Git repository", "OK", "inside a git work tree"))
+    else:
+        detail = result.stderr.strip() or "not a git repository"
+        checks.append(DoctorCheck("Git repository", "WARN", detail))
+
+
+def _build_doctor_table(checks: list[DoctorCheck]) -> Table:
+    table = Table(title="RepoInsight Doctor", show_header=True, header_style="bold")
+    table.add_column("Check", style="cyan", no_wrap=True)
+    table.add_column("Status", no_wrap=True)
+    table.add_column("Detail")
+
+    for check in checks:
+        table.add_row(check.name, _format_doctor_status(check.status), check.detail)
+    return table
+
+
+def _format_doctor_status(status: str) -> str:
+    styles = {"OK": "green", "WARN": "yellow", "FAIL": "red"}
+    style = styles.get(status, "white")
+    return f"[{style}]{status}[/{style}]"
 
 
 def _join_values(values: list[Any]) -> str:

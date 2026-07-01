@@ -11,6 +11,13 @@ from repoinsight import cli
 runner = CliRunner()
 
 
+def test_version_command_outputs_current_version() -> None:
+    result = runner.invoke(cli.app, ["version"])
+
+    assert result.exit_code == 0
+    assert result.output.strip() == "0.8.0"
+
+
 def test_ask_command_uses_mocked_agent(monkeypatch, tmp_path: Path) -> None:
     project = tmp_path / "project"
     project.mkdir()
